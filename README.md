@@ -1,6 +1,6 @@
 # Flock Detector CYD
 
-A passive WiFi-based Flock Safety camera detector built for the **ESP32-2432S028R** (Cheap Yellow Display / CYD) board. Sniffs 2.4GHz management and data frames for known Flock Safety MAC OUI prefixes without transmitting — completely passive reconnaissance.
+A passive WiFi-based Flock Safety camera detector built for the **ESP32-3248S035** (Cheap Yellow Display / CYD) board. Sniffs 2.4GHz management and data frames for known Flock Safety MAC OUI prefixes without transmitting — completely passive reconnaissance.
 
 ![Flock detector devices](images/devices.jpg)
 
@@ -30,7 +30,7 @@ The detector cycles through WiFi channels **1, 6, and 11** (the three non-overla
 
 ## Hardware
 
-### ESP32-2432S028R (CYD) Specs
+### ESP32-3248S035 (CYD) Specs
 - **MCU:** ESP32-D0WD-V3 (dual-core 240MHz)
 - **Display:** 3.5" ILI9488 TFT, 320x480 pixels
 - **Interface:** SPI (MOSI:13, SCLK:14, CS:15, DC:2)
@@ -89,7 +89,7 @@ Triggered on new camera detection:
 ## Building & Flashing
 
 ### What You Need
-- **ESP32-2432S028R** board (the 3.5" CYD variant with ILI9488 display) — available on AliExpress/Amazon for ~$10-15
+- **ESP32-3248S035** board (the 3.5" CYD with ILI9488 display) — available on AliExpress/Amazon for ~$10-15
 - **USB-C cable** (data cable, not charge-only)
 - A computer (Windows, macOS, or Linux)
 
