@@ -6,6 +6,8 @@ A passive WiFi-based Flock Safety camera detector built for the **ESP32-2432S028
 
 This project is a CYD port inspired by and based on the original **[Flock You](https://github.com/colonelpanichacks/flock-you)** project by **[colonelpanichacks](https://github.com/colonelpanichacks)**. The OUI signature list, detection methodology, and core concept all originate from that project. Full credit to the original creator for the research identifying Flock Safety camera MAC prefixes and building the first detection firmware.
 
+This firmware was vibe coded with **[Claude](https://claude.ai)** by Anthropic.
+
 ## How It Works
 
 Flock Safety cameras use WiFi-enabled ESP32 modules to communicate. Each manufacturer assigns a unique OUI (Organizationally Unique Identifier) as the first 3 bytes of every MAC address. This firmware puts the ESP32 into promiscuous mode and passively listens for WiFi packets whose source or destination MAC matches one of the 31 known Flock Safety OUI prefixes.
