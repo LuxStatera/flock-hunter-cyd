@@ -36,7 +36,6 @@ The detector cycles through WiFi channels **1, 6, and 11** (the three non-overla
 - **Interface:** SPI (MOSI:13, SCLK:14, CS:15, DC:2)
 - **Touch:** Resistive (CS:33)
 - **RGB LED:** R:4, G:16, B:17 (active low)
-- **Speaker:** Pin 26 (PWM tone output)
 - **Backlight:** Pin 21
 - **USB:** USB-C (CH340 serial)
 
@@ -58,7 +57,6 @@ Triggered on new camera detection:
 - Red flashing border for 1 second, then solid display for 4 seconds
 - "FLOCK CAMERA DETECTED" banner
 - Full details: MAC address, signal strength (dBm), channel, frequency, detection method, hit count, status, OUI prefix
-- Audio alert tone (800–1900Hz sweep)
 - RGB LED turns red
 
 ### Camera List Screen
