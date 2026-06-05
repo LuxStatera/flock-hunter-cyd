@@ -37,6 +37,7 @@ The detector cycles through WiFi channels **1, 6, and 11** (the three non-overla
 - **Touch:** Resistive (CS:33)
 - **RGB LED:** R:4, G:16, B:17 (active low)
 - **Backlight:** Pin 21
+- **Speaker (optional):** Pin 26 — not connected by default, but the firmware supports audio alerts if you wire a small speaker or piezo buzzer to GPIO 26
 - **USB:** USB-C (CH340 serial)
 
 ## UI Screens
@@ -58,6 +59,7 @@ Triggered on new camera detection:
 - "FLOCK CAMERA DETECTED" banner
 - Full details: MAC address, signal strength (dBm), channel, frequency, detection method, hit count, status, OUI prefix
 - RGB LED turns red
+- Audio alert tone (800–1900Hz sweep) if optional speaker is connected
 
 ### Camera List Screen
 - Shows all detected cameras with MAC address, RSSI, channel, hit count, and detection method
