@@ -38,7 +38,7 @@ The detector cycles through WiFi channels **1, 6, and 11** (the three non-overla
 - **RGB LED:** R:4, G:16, B:17 (active low)
 - **Backlight:** Pin 21
 - **Speaker (optional):** Pin 26 — not connected by default, but the firmware supports audio alerts if you wire a small speaker or piezo buzzer to GPIO 26
-- **USB:** USB-C (CH340 serial/data) + Micro USB (power only)
+- **USB:** USB-C (CH340 serial + power) + Micro USB (power only)
 
 ## UI Screens
 
