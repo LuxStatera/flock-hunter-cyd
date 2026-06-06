@@ -320,14 +320,14 @@ void drawBoot() {
         tft.setTextDatum(MC_DATUM);
         tft.setTextColor(GRN, BG);
         tft.setTextFont(4); tft.setTextSize(2);
-        tft.drawString("Flock You", SW/2, 80);
+        tft.drawString("Flock Hunter", SW/2, 80);
         tft.setTextSize(1);
 
         tft.drawFastHLine(40, 120, SW-80, GRN);
         tft.drawFastHLine(60, 122, SW-120, DGRN);
 
-        tft.setTextFont(4); tft.setTextColor(DGRN, BG);
-        tft.drawString("Flock Hunter", SW/2, 150);
+        tft.setTextFont(2); tft.setTextColor(DGRN, BG);
+        tft.drawString("Based on Flock You", SW/2, 145);
 
         tft.setTextFont(2); tft.setTextColor(DDGRN, BG);
         tft.drawString("ESP32-CYD // v2.0", SW/2, 185);

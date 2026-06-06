@@ -70,7 +70,7 @@ The scan screen shows **SD:OK  PCAP:REC** when the card is working, or **SD:NONE
 ## UI Screens
 
 ### Boot Screen
-Displays "Flock You" title crediting the original project, "Flock Hunter" subtitle, version info, and OUI signature count.
+Displays "Flock Hunter" title, "Based on Flock You" credit line, version info, and OUI signature count.
 
 ### Scanning Screen
 - Green header bar with "FLOCK HUNTER" title
