@@ -1,6 +1,6 @@
-# Flock Detector CYD
+# Flock Hunter
 
-A passive WiFi-based Flock Safety camera detector built for the **ESP32-2432S028R** (Cheap Yellow Display / CYD) board. Sniffs 2.4GHz management and data frames for known Flock Safety MAC OUI prefixes without transmitting — completely passive reconnaissance.
+A passive WiFi-based Flock Safety camera detector built for the **ESP32-2432S028R** (Cheap Yellow Display / CYD) board. Sniffs 2.4GHz management and data frames for known Flock Safety MAC OUI prefixes without transmitting — completely passive reconnaissance. Captures raw 802.11 packets to SD card in pcap format for Wireshark analysis.
 
 ![Flock detector devices](images/devices.jpg)
 
@@ -8,13 +8,13 @@ A passive WiFi-based Flock Safety camera detector built for the **ESP32-2432S028
 
 ## Credits
 
-This project is a CYD port inspired by and based on the original **[Flock You](https://github.com/colonelpanichacks/flock-you)** project by **[colonelpanichacks](https://github.com/colonelpanichacks)**. The OUI signature list, detection methodology, and core concept all originate from that project. Full credit to the original creator for the research identifying Flock Safety camera MAC prefixes and building the first detection firmware.
+This project evolved from the original **[Flock You](https://github.com/colonelpanichacks/flock-you)** project by **[colonelpanichacks](https://github.com/colonelpanichacks)**. The OUI signature list, detection methodology, and core concept all originate from that project. Full credit to the original creator for the research identifying Flock Safety camera MAC prefixes and building the first detection firmware.
 
 This firmware and this documentation were all written by Claude.
 
 ## How It Works
 
-Flock Safety cameras periodically emit WiFi probe requests and other management frames as part of their normal operation. Each network device's MAC address begins with a 3-byte OUI (Organizationally Unique Identifier) assigned to the hardware manufacturer. Researchers identified 31 OUI prefixes consistently associated with Flock Safety camera deployments through field testing. This firmware puts the ESP32 into promiscuous mode and passively listens for WiFi packets whose source or destination MAC matches one of those 31 known OUI prefixes.
+Flock Safety cameras periodically emit WiFi probe requests and other management frames as part of their normal operation. Each network device's MAC address begins with a 3-byte OUI (Organizationally Unique Identifier) assigned to the hardware manufacturer. Researchers identified 32 OUI prefixes consistently associated with Flock Safety camera deployments through field testing. This firmware puts the ESP32 into promiscuous mode and passively listens for WiFi packets whose source or destination MAC matches one of those 32 known OUI prefixes.
 
 ### Detection Methods
 
@@ -26,7 +26,7 @@ Flock Safety cameras periodically emit WiFi probe requests and other management 
 
 ### Channel Hopping
 
-The detector cycles through WiFi channels **1, 6, and 11** (the three non-overlapping 2.4GHz channels) with a 350ms dwell time per channel, ensuring comprehensive coverage of all standard WiFi traffic.
+The detector cycles through WiFi channels **1, 6, and 11** (the three non-overlapping 2.4GHz channels) with a 150ms dwell time per channel, ensuring comprehensive coverage of all standard WiFi traffic.
 
 ## Hardware
 
@@ -37,20 +37,48 @@ The detector cycles through WiFi channels **1, 6, and 11** (the three non-overla
 - **Touch:** Resistive (CS:33)
 - **RGB LED:** R:4, G:16, B:17 (active low)
 - **Backlight:** Pin 21
+- **SD Card:** Built-in micro SD slot (CS:5, CLK:18, MISO:19, MOSI:23)
 - **Speaker (optional):** Pin 26 — not connected by default, but the firmware supports audio alerts if you wire a small speaker or piezo buzzer to GPIO 26
 - **USB:** USB-C (CH340 serial + power) + Micro USB (power only)
+
+## SD Card + PCAP Capture
+
+Insert a **FAT32-formatted micro SD card** (any size, 4-8GB recommended) and the detector automatically logs raw 802.11 packets from Flock cameras in standard pcap format.
+
+### Folder Structure
+
+Each boot creates a new session:
+```
+/flock/
+  session_001/
+    pcap/capture.pcap      <- raw 802.11 frames, open in Wireshark
+    csv/                   <- reserved for GPS logging (coming soon)
+  session_002/
+    pcap/capture.pcap
+    csv/
+```
+
+### Using with Wireshark
+
+1. Drive around with the detector running and SD card inserted
+2. Pull the SD card and plug it into your computer
+3. Open the `.pcap` file in [Wireshark](https://www.wireshark.org/)
+4. You'll see full 802.11 management and data frames — frame types, MAC addresses, probe request SSIDs, data rates, and more
+
+The scan screen shows **SD:OK  PCAP:REC** when the card is working, or **SD:NONE** if no card is detected.
 
 ## UI Screens
 
 ### Boot Screen
-Displays "Flock You" title crediting the original project, "Flock Camera Detector" subtitle, version info, and OUI signature count.
+Displays "Flock You" title crediting the original project, "Flock Hunter" subtitle, version info, and OUI signature count.
 
 ### Scanning Screen
-- Green header bar with "FLOCK DETECTOR" title
+- Green header bar with "FLOCK HUNTER" title
 - Animated "SCANNING..." text with cycling dots
 - Three channel indicator boxes (CH 1, CH 6, CH 11) highlighting the active channel
 - Live packet counter and detection counter
-- Network info (passive mode, 2.4GHz, 802.11, 31 OUI signatures)
+- Network info (passive mode, 2.4GHz, 802.11, 32 OUI signatures)
+- SD card and PCAP recording status
 - Uptime display
 
 ### Alert Screen
@@ -59,10 +87,10 @@ Triggered on new camera detection:
 - "FLOCK CAMERA DETECTED" banner
 - Full details: MAC address, signal strength (dBm), channel, frequency, detection method, hit count, status, OUI prefix
 - RGB LED turns red
-- Audio alert tone (800–1900Hz sweep) if optional speaker is connected
+- Audio alert tone (800-1900Hz sweep) if optional speaker is connected
 
 ### Camera List Screen
-- Shows all detected cameras with MAC address, RSSI, channel, hit count, and detection method
+- Shows the 4 most recent detected cameras with MAC address, RSSI, channel, hit count, and detection method
 - Green/red status dots for active/stale cameras
 - Displays for 5 seconds before returning to scan mode
 
@@ -74,7 +102,7 @@ Triggered on new camera detection:
 | Detection | Red | Solid during alert |
 | Boot | Green | Solid |
 
-## 31 Flock Safety OUI Prefixes
+## 32 Flock Safety OUI Prefixes
 
 ```
 70:C9:4E  3C:91:80  D8:F3:BC  80:30:49  B8:35:32
@@ -83,13 +111,14 @@ Triggered on new camera detection:
 00:F4:8D  D0:39:57  E8:D0:FC  E0:4F:43  B8:1E:A4
 70:08:94  58:8E:81  EC:1B:BD  3C:71:BF  58:00:E3
 90:35:EA  5C:93:A2  64:6E:69  48:27:EA  A4:CF:12
-82:6B:F2
+82:6B:F2  B4:1E:52
 ```
 
 ## Building & Flashing
 
 ### What You Need
 - **ESP32-2432S028R** board (2.8" CYD with ILI9488 display, USB-C variant) — available on AliExpress/Amazon for ~$10-15
+- **Micro SD card** (FAT32 formatted, any size) — for PCAP capture
 - **USB-C cable** (data cable, not charge-only)
 - A computer (Windows, macOS, or Linux)
 
@@ -162,6 +191,7 @@ This shows detection events and debug info in your terminal.
 | Display is white/blank | The TFT_eSPI `User_Setup.h` in `.pio/libdeps/` must be blank — if it has pin definitions, clear the file and rebuild |
 | Colors are inverted | The firmware already handles this with `tft.invertDisplay(true)`. If colors are wrong, your board may have a different panel variant |
 | Display is rotated | Change `tft.setRotation(2)` in `src/main.cpp` — try values 0-3 to find the correct orientation for your board |
+| SD card not detected | Make sure the card is FAT32 formatted (not exFAT). Cards 32GB and under are FAT32 by default |
 
 ### Configuration Notes
 All display driver settings are defined in `platformio.ini` via build flags — the TFT_eSPI `User_Setup.h` is intentionally blank. If you need to change pins or display settings, edit the `build_flags` section in `platformio.ini`.
@@ -170,23 +200,21 @@ All display driver settings are defined in `platformio.ini` via build flags — 
 
 The device logs detection events over serial at 115200 baud:
 ```
-[FLOCK DETECTOR] Booting...
+[FLOCK HUNTER] Booting...
 [DISPLAY] w=320 h=480 (ILI9488)
-[FLOCK DETECTOR] Scanning channels 1, 6, 11
+[SD] Card ready — 7627MB
+[SD] Session: /flock/session_001
+[FLOCK HUNTER] Scanning channels 1, 6, 11
 [ALERT] 70:C9:4E:AB:CD:EF RSSI:-72 CH:6 OUI_TX
 ```
 
 ## Coming Soon
 
-### GPS + SD Card Mapping (Optional)
+### GPS Mapping (Optional)
 
-Support for an **ATGM336H GPS module** and the CYD's built-in **micro SD card slot** is in development. This will allow the detector to log each Flock camera detection with GPS coordinates and export the data for mapping.
+Support for an **ATGM336H GPS module** connected via the CN1 expansion header (GPIO 22/27 + 3V3 + GND). This will log each detection with GPS coordinates to CSV files in the session's `csv/` folder, importable into Google Earth, Google Maps, or QGIS to map Flock camera locations.
 
-- **GPS module** — ATGM336H connected via the CN1 expansion header (GPIO 22/27 + 3V3 + GND)
-- **SD card logging** — detections saved as CSV with timestamp, latitude, longitude, MAC address, RSSI, channel, and detection method
-- **Mapping** — CSV files can be imported into Google Earth, Google Maps, or QGIS to visualize Flock camera locations
-
-GPS and mapping are fully optional — the detector works without them, just like it does now.
+GPS is fully optional — the detector works without it.
 
 ## Legal Disclaimer
 

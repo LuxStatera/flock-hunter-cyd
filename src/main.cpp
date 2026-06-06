@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <SPI.h>
+#include <SD.h>
+#include <FS.h>
 #include <TFT_eSPI.h>
 #include "esp_wifi.h"
 #include "esp_wifi_types.h"
@@ -15,6 +17,7 @@ int SH = 480;
 #define LED_B 17
 #define SPEAKER_PIN 26
 #define BACKLIGHT_PIN 21
+#define SD_CS 5
 
 #define BG    0x0000
 #define GRN   0x07E0
@@ -32,9 +35,10 @@ static const uint8_t FLOCK_OUIS[][3] = {
     {0xD0,0x39,0x57},{0xE8,0xD0,0xFC},{0xE0,0x4F,0x43},{0xB8,0x1E,0xA4},
     {0x70,0x08,0x94},{0x58,0x8E,0x81},{0xEC,0x1B,0xBD},{0x3C,0x71,0xBF},
     {0x58,0x00,0xE3},{0x90,0x35,0xEA},{0x5C,0x93,0xA2},{0x64,0x6E,0x69},
-    {0x48,0x27,0xEA},{0xA4,0xCF,0x12},{0x82,0x6B,0xF2}
+    {0x48,0x27,0xEA},{0xA4,0xCF,0x12},{0x82,0x6B,0xF2},
+    {0xB4,0x1E,0x52}  // registered Flock Safety OUI
 };
-static const int NUM_OUIS = 31;
+static const int NUM_OUIS = 32;
 
 static const uint8_t SCAN_CH[] = {1, 6, 11};
 static int chIdx = 0;
@@ -59,6 +63,27 @@ struct Alert { uint8_t mac[6]; int8_t rssi; uint8_t ch, method; };
 static volatile Alert aq[AQ_SZ];
 static volatile int aqH = 0, aqT = 0;
 static portMUX_TYPE aqMux = portMUX_INITIALIZER_UNLOCKED;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PCAP CAPTURE BUFFER
+// ═══════════════════════════════════════════════════════════════════════════
+#define PCAP_BUF_SIZE 8
+#define PCAP_MAX_PKT  512
+struct PcapPkt {
+    uint8_t  data[PCAP_MAX_PKT];
+    uint16_t len;
+    unsigned long ts_ms;
+};
+static volatile PcapPkt pcapBuf[PCAP_BUF_SIZE];
+static volatile int pcapH = 0, pcapT = 0;
+static portMUX_TYPE pcapMux = portMUX_INITIALIZER_UNLOCKED;
+
+// SD card state
+static bool sdReady = false;
+static fs::File pcapFile;
+static char sessionPath[32];
+static int pcapCount = 0;
+static unsigned long lastFlush = 0;
 
 enum State { ST_BOOT, ST_SCAN, ST_ALERT, ST_LIST };
 static State st = ST_BOOT;
@@ -93,6 +118,118 @@ void playTone() {
     ledcDetachPin(SPEAKER_PIN);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SD CARD + PCAP
+// ═══════════════════════════════════════════════════════════════════════════
+
+static int findNextSession() {
+    int maxNum = 0;
+    fs::File root = SD.open("/flock");
+    if (!root) return 1;
+    fs::File f = root.openNextFile();
+    while (f) {
+        const char* name = f.name();
+        // name looks like "session_001" or "/session_001"
+        const char* p = strstr(name, "session_");
+        if (p) {
+            int n = atoi(p + 8);
+            if (n > maxNum) maxNum = n;
+        }
+        f = root.openNextFile();
+    }
+    return maxNum + 1;
+}
+
+static void writePcapHeader(fs::File& f) {
+    // PCAP global header — LINKTYPE_IEEE802_11 (105)
+    uint32_t magic = 0xA1B2C3D4;
+    uint16_t ver_major = 2, ver_minor = 4;
+    int32_t  thiszone = 0;
+    uint32_t sigfigs = 0, snaplen = PCAP_MAX_PKT, network = 105;
+    f.write((uint8_t*)&magic, 4);
+    f.write((uint8_t*)&ver_major, 2);
+    f.write((uint8_t*)&ver_minor, 2);
+    f.write((uint8_t*)&thiszone, 4);
+    f.write((uint8_t*)&sigfigs, 4);
+    f.write((uint8_t*)&snaplen, 4);
+    f.write((uint8_t*)&network, 4);
+    f.flush();
+}
+
+static void writePcapPacket(fs::File& f, const uint8_t* data, uint16_t len, unsigned long ts_ms) {
+    uint32_t ts_sec = ts_ms / 1000;
+    uint32_t ts_usec = (ts_ms % 1000) * 1000;
+    uint32_t caplen = len;
+    uint32_t origlen = len;
+    f.write((uint8_t*)&ts_sec, 4);
+    f.write((uint8_t*)&ts_usec, 4);
+    f.write((uint8_t*)&caplen, 4);
+    f.write((uint8_t*)&origlen, 4);
+    f.write(data, len);
+}
+
+static bool initSD() {
+    // SD card uses VSPI (default SPI) — different bus from display (HSPI)
+    if (!SD.begin(SD_CS)) {
+        Serial.println("[SD] Card init failed");
+        return false;
+    }
+    Serial.printf("[SD] Card ready — %lluMB\n", SD.cardSize() / (1024*1024));
+
+    // Create /flock if needed
+    if (!SD.exists("/flock")) SD.mkdir("/flock");
+
+    // Find next session number
+    int sessNum = findNextSession();
+    sprintf(sessionPath, "/flock/session_%03d", sessNum);
+
+    // Create session directories
+    SD.mkdir(sessionPath);
+    char pcapDir[48], csvDir[48];
+    sprintf(pcapDir, "%s/pcap", sessionPath);
+    sprintf(csvDir, "%s/csv", sessionPath);
+    SD.mkdir(pcapDir);
+    SD.mkdir(csvDir);
+
+    // Open pcap file and write header
+    char pcapPath[64];
+    sprintf(pcapPath, "%s/pcap/capture.pcap", sessionPath);
+    pcapFile = SD.open(pcapPath, FILE_WRITE);
+    if (!pcapFile) {
+        Serial.println("[SD] Failed to create pcap file");
+        return false;
+    }
+    writePcapHeader(pcapFile);
+
+    Serial.printf("[SD] Session: %s\n", sessionPath);
+    return true;
+}
+
+static void drainPcapBuffer() {
+    if (!sdReady || !pcapFile) return;
+
+    while (pcapT != pcapH) {
+        portENTER_CRITICAL(&pcapMux);
+        PcapPkt pkt;
+        memcpy(&pkt, (void*)&pcapBuf[pcapT], sizeof(PcapPkt));
+        pcapT = (pcapT + 1) % PCAP_BUF_SIZE;
+        portEXIT_CRITICAL(&pcapMux);
+
+        writePcapPacket(pcapFile, pkt.data, pkt.len, pkt.ts_ms);
+        pcapCount++;
+    }
+
+    // Flush every 5 seconds to avoid data loss
+    if (millis() - lastFlush > 5000) {
+        pcapFile.flush();
+        lastFlush = millis();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SNIFFER
+// ═══════════════════════════════════════════════════════════════════════════
+
 void IRAM_ATTR sniffer(void* buf, wifi_promiscuous_pkt_type_t type) {
     if (type != WIFI_PKT_MGMT && type != WIFI_PKT_DATA) return;
     const wifi_promiscuous_pkt_t* p = (wifi_promiscuous_pkt_t*)buf;
@@ -112,6 +249,8 @@ void IRAM_ATTR sniffer(void* buf, wifi_promiscuous_pkt_type_t type) {
     if (am == 255) return;
 
     const uint8_t* mac = (am==2) ? a1 : a2;
+
+    // Enqueue alert
     portENTER_CRITICAL(&aqMux);
     int nx = (aqH+1) % AQ_SZ;
     if (nx != aqT) {
@@ -122,6 +261,18 @@ void IRAM_ATTR sniffer(void* buf, wifi_promiscuous_pkt_type_t type) {
         aqH = nx;
     }
     portEXIT_CRITICAL(&aqMux);
+
+    // Enqueue raw packet for PCAP
+    portENTER_CRITICAL(&pcapMux);
+    int pnx = (pcapH + 1) % PCAP_BUF_SIZE;
+    if (pnx != pcapT) {
+        uint16_t caplen = (len > PCAP_MAX_PKT) ? PCAP_MAX_PKT : len;
+        memcpy((void*)pcapBuf[pcapH].data, d, caplen);
+        pcapBuf[pcapH].len = caplen;
+        pcapBuf[pcapH].ts_ms = millis();
+        pcapH = pnx;
+    }
+    portEXIT_CRITICAL(&pcapMux);
 }
 
 void processAlerts() {
@@ -176,11 +327,11 @@ void drawBoot() {
         tft.drawFastHLine(60, 122, SW-120, DGRN);
 
         tft.setTextFont(4); tft.setTextColor(DGRN, BG);
-        tft.drawString("Flock Camera Detector", SW/2, 150);
+        tft.drawString("Flock Hunter", SW/2, 150);
 
         tft.setTextFont(2); tft.setTextColor(DDGRN, BG);
-        tft.drawString("ESP32-CYD // v1.0", SW/2, 185);
-        tft.drawString("31 OUI SIGNATURES", SW/2, 205);
+        tft.drawString("ESP32-CYD // v2.0", SW/2, 185);
+        tft.drawString("32 OUI SIGNATURES", SW/2, 205);
 
         tft.drawRect(40, 240, SW-80, 16, DGRN);
 
@@ -208,7 +359,7 @@ void drawScan() {
         tft.setTextDatum(MC_DATUM);
         tft.setTextColor(BG, GRN);
         tft.setTextFont(4);
-        tft.drawString("FLOCK DETECTOR", SW/2, 16);
+        tft.drawString("FLOCK HUNTER", SW/2, 16);
         tft.setTextDatum(TL_DATUM);
 
         // Divider after channels
@@ -227,7 +378,17 @@ void drawScan() {
         // Bottom info
         tft.setTextFont(2); tft.setTextColor(DDGRN, BG);
         tft.drawString("PASSIVE  2.4GHz  802.11", 15, 205);
-        tft.drawString("31 OUI SIGNATURES LOADED", 15, 225);
+        tft.drawString("32 OUI SIGNATURES LOADED", 15, 225);
+
+        // SD + PCAP status — bottom left
+        tft.setTextFont(2);
+        if (sdReady) {
+            tft.setTextColor(DGRN, BG);
+            tft.drawString("SD:OK  PCAP:REC", 15, SH - 20);
+        } else {
+            tft.setTextColor(DRED, BG);
+            tft.drawString("SD:NONE", 15, SH - 20);
+        }
 
         prevDots = -1; prevChIdx = -1; prevPkt = -1; prevDet = -1;
         needFull = false;
@@ -455,7 +616,7 @@ void drawList() {
 // ═══════════════════════════════════════════════════════════════════════════
 void setup() {
     Serial.begin(115200);
-    Serial.println("\n[FLOCK DETECTOR] Booting...");
+    Serial.println("\n[FLOCK HUNTER] Booting...");
 
     pinMode(LED_R, OUTPUT); pinMode(LED_G, OUTPUT); pinMode(LED_B, OUTPUT);
     setLED(false, true, false);
@@ -478,6 +639,9 @@ void setup() {
     st = ST_BOOT;
     needFull = true;
     drawBoot();
+
+    // Init SD card
+    sdReady = initSD();
 
     // WiFi init
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -504,7 +668,7 @@ void setup() {
 
     st = ST_SCAN;
     needFull = true;
-    Serial.println("[FLOCK DETECTOR] Scanning channels 1, 6, 11");
+    Serial.println("[FLOCK HUNTER] Scanning channels 1, 6, 11");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -513,13 +677,14 @@ void setup() {
 void loop() {
     unsigned long now = millis();
 
-    if (now - lastHop >= 350) {
+    if (now - lastHop >= 150) {
         lastHop = now;
         chIdx = (chIdx + 1) % 3;
         esp_wifi_set_channel(SCAN_CH[chIdx], WIFI_SECOND_CHAN_NONE);
     }
 
     processAlerts();
+    drainPcapBuffer();
 
     if (now - lastDot >= 500) { lastDot = now; dots = (dots+1) % 4; }
     if (st != prevSt) { needFull = true; prevSt = st; }
