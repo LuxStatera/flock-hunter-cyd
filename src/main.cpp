@@ -425,13 +425,12 @@ void drawList() {
             return;
         }
 
-        int maxVis = 8;
-        int start = max(0, nDet - maxVis);
+        int maxVis = 4;
+        int show = min(nDet, maxVis);
 
-        for (int i = start; i < nDet; i++) {
-            Det& d = dets[i];
-            int row = i - start;
-            int y = 38 + row * 50;
+        for (int r = 0; r < show; r++) {
+            Det& d = dets[nDet - 1 - r];
+            int y = 45 + r * 50;
             uint16_t fg = d.active ? GRN : GRAY;
 
             tft.fillCircle(10, y+8, 4, d.active ? GRN : RED);
@@ -474,10 +473,13 @@ void setup() {
     SH = tft.height();
     Serial.printf("[DISPLAY] w=%d h=%d (ILI9488)\n", SW, SH);
 
+    // Draw boot screen
     bootT = millis();
     st = ST_BOOT;
     needFull = true;
+    drawBoot();
 
+    // WiFi init
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     esp_wifi_init(&cfg);
     esp_wifi_set_storage(WIFI_STORAGE_RAM);
@@ -491,6 +493,17 @@ void setup() {
     esp_wifi_set_promiscuous(true);
     esp_wifi_set_channel(SCAN_CH[0], WIFI_SECOND_CHAN_NONE);
 
+    // Animate progress bar for 3 seconds
+    int barW = SW - 82;
+    while (millis() - bootT < 3000) {
+        int prog = (millis() - bootT) * barW / 3000;
+        tft.fillRect(41, 241, prog, 14, GRN);
+        delay(30);
+    }
+    tft.fillRect(41, 241, barW, 14, GRN);
+
+    st = ST_SCAN;
+    needFull = true;
     Serial.println("[FLOCK DETECTOR] Scanning channels 1, 6, 11");
 }
 
@@ -513,8 +526,7 @@ void loop() {
 
     switch (st) {
         case ST_BOOT:
-            if (now - bootT < 3000) drawBoot();
-            else { st = ST_SCAN; setLED(false,true,false); needFull = true; }
+            st = ST_SCAN; needFull = true;
             break;
 
         case ST_ALERT:

@@ -43,7 +43,7 @@ The detector cycles through WiFi channels **1, 6, and 11** (the three non-overla
 ## UI Screens
 
 ### Boot Screen
-Displays "Flock You" title crediting the original project, "Flock Camera Detector" subtitle, version info, OUI signature count, and an animated progress bar.
+Displays "Flock You" title crediting the original project, "Flock Camera Detector" subtitle, version info, and OUI signature count.
 
 ### Scanning Screen
 - Green header bar with "FLOCK DETECTOR" title
