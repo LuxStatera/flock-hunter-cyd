@@ -176,6 +176,18 @@ The device logs detection events over serial at 115200 baud:
 [ALERT] 70:C9:4E:AB:CD:EF RSSI:-72 CH:6 OUI_TX
 ```
 
+## Coming Soon
+
+### GPS + SD Card Mapping (Optional)
+
+Support for an **ATGM336H GPS module** and the CYD's built-in **micro SD card slot** is in development. This will allow the detector to log each Flock camera detection with GPS coordinates and export the data for mapping.
+
+- **GPS module** — ATGM336H connected via the CN1 expansion header (GPIO 22/27 + 3V3 + GND)
+- **SD card logging** — detections saved as CSV with timestamp, latitude, longitude, MAC address, RSSI, channel, and detection method
+- **Mapping** — CSV files can be imported into Google Earth, Google Maps, or QGIS to visualize Flock camera locations
+
+GPS and mapping are fully optional — the detector works without them, just like it does now.
+
 ## Legal Disclaimer
 
 This device is a **passive receiver only**. It does not transmit, deauthenticate, jam, or interfere with any wireless communications. It operates the same way any WiFi-enabled device does when scanning for available networks. Monitoring publicly broadcast WiFi management frames is generally legal, but laws vary by jurisdiction. Check your local laws before use. This project is for educational and research purposes.
