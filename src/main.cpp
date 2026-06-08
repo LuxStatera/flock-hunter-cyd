@@ -396,10 +396,10 @@ void drawScan() {
         tft.setTextFont(2);
         if (sdReady) {
             tft.setTextColor(DGRN, BG);
-            tft.drawString("SD:OK  PCAP:REC", 15, SH - 20);
+            tft.drawString("SD: OK   PCAP: REC", 15, SH - 20);
         } else {
             tft.setTextColor(DRED, BG);
-            tft.drawString("SD:NONE", 15, SH - 20);
+            tft.drawString("SD: NONE", 15, SH - 20);
         }
 
         prevDots = -1; prevChIdx = -1; prevPkt = -1; prevDet = -1; prevActive = -1;
