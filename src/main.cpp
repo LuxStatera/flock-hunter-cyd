@@ -386,7 +386,7 @@ void drawScan() {
         tft.drawString("CAMERAS", SW/2 + 10, 130);
 
         // Divider
-        tft.drawFastHLine(8, 195, SW-16, DDGRN);
+        tft.drawFastHLine(8, 180, SW-16, DDGRN);
 
         // Bottom info
         tft.setTextFont(2); tft.setTextColor(DDGRN, BG);
@@ -396,10 +396,10 @@ void drawScan() {
         tft.setTextFont(2);
         if (sdReady) {
             tft.setTextColor(DGRN, BG);
-            tft.drawString("SD: OK   PCAP: REC", 15, SH - 20);
+            tft.drawString("SD: OK   PCAP: REC", 15, 210);
         } else {
             tft.setTextColor(DRED, BG);
-            tft.drawString("SD: NONE", 15, SH - 20);
+            tft.drawString("SD: NONE", 15, 210);
         }
 
         prevDots = -1; prevChIdx = -1; prevPkt = -1; prevDet = -1; prevActive = -1;
@@ -464,17 +464,17 @@ void drawScan() {
     int active = countActive();
     if (active != prevActive) {
         tft.setTextFont(2);
-        tft.fillRect(15, 225, SW - 30, 16, BG);
+        tft.fillRect(15, 190, SW - 30, 16, BG);
         if (active > 0) {
             tft.setTextColor(RED, BG);
             char ab[24]; sprintf(ab, "%d IN RANGE", active);
-            tft.drawString(ab, 15, 225);
+            tft.drawString(ab, 15, 190);
         } else {
             tft.setTextColor(DDGRN, BG);
-            tft.drawString("No cameras in range", 15, 225);
+            tft.drawString("No cameras in range", 15, 190);
         }
         tft.setTextColor(DDGRN, BG);
-        tft.drawString("PASSIVE 2.4GHz", SW - 130, 225);
+        tft.drawString("PASSIVE 2.4GHz", SW - 130, 190);
         prevActive = active;
     }
 
@@ -482,7 +482,7 @@ void drawScan() {
     unsigned long sec = millis()/1000;
     char ut[16]; sprintf(ut, "%02lu:%02lu  ", sec/60, sec%60);
     tft.setTextFont(2); tft.setTextColor(DDGRN, BG);
-    tft.drawString(ut, SW - 70, SH - 20);
+    tft.drawString(ut, SW - 70, 210);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
