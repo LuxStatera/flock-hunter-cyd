@@ -500,10 +500,6 @@ void drawAlert(int idx) {
     uint16_t bg = (flashState == 1) ? tft.color565(30,0,0) : BG;
     tft.fillScreen(bg);
 
-    uint16_t bc = (flashState < 2) ? RED : DRED;
-    for (int i = 0; i < 3; i++)
-        tft.drawRect(i, i, SW-2*i, SH-2*i, bc);
-
     // Banner
     uint16_t hbg = (flashState == 0) ? RED : DRED;
     tft.fillRect(4, 4, SW-8, 26, hbg);
@@ -589,10 +585,6 @@ void drawAlert(int idx) {
     char oui[12]; sprintf(oui, "%02X:%02X:%02X", d.mac[0], d.mac[1], d.mac[2]);
     tft.setTextColor(GRN, bg);
     tft.drawString(oui, 140, y);
-
-    // Bottom border line below content
-    y += 22;
-    tft.drawFastHLine(8, y, SW-16, DRED);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
