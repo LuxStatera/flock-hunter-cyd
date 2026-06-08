@@ -77,7 +77,8 @@ Displays "Flock Hunter" title, "Based on Flock You" credit line, version info, a
 - Animated "SCANNING..." text with cycling dots
 - Three channel indicator boxes (CH 1, CH 6, CH 11) highlighting the active channel
 - Live packet counter and camera counter
-- Network info (passive mode, 2.4GHz, 802.11, 32 scan patterns)
+- Network info (passive mode, 2.4GHz, 802.11)
+- Live "in range" counter showing how many cameras are currently active
 - SD card and PCAP recording status
 - Uptime display
 
@@ -85,12 +86,12 @@ Displays "Flock Hunter" title, "Based on Flock You" credit line, version info, a
 Triggered on new camera detection:
 - Red flashing border for 1 second, then solid display for 4 seconds
 - "FLOCK CAMERA DETECTED" banner
-- Full details: MAC address, signal strength with estimated distance (dBm ~Xft), channel, frequency, detection method, hit count, status, OUI prefix
+- Full details: MAC address, signal strength with range estimate (dBm + CLOSE/NEAR/FAR), channel, frequency, detection method, hit count, status, OUI prefix
 - RGB LED turns red
 - Audio alert tone (800-1900Hz sweep) if optional speaker is connected
 
 ### Camera List Screen
-- Shows the 4 most recent detected cameras with MAC address, RSSI, estimated distance, channel, and detection method
+- Shows the 4 most recent detected cameras with MAC address, RSSI, range (CLOSE/NEAR/FAR), channel, and detection method
 - Green/red status dots for active/stale cameras
 - Displays for 5 seconds before returning to scan mode
 
@@ -215,6 +216,10 @@ The device logs detection events over serial at 115200 baud:
 Support for an **ATGM336H GPS module** connected via the CN1 expansion header (GPIO 22/27 + 3V3 + GND). This will log each detection with GPS coordinates to CSV files in the session's `csv/` folder, importable into Google Earth, Google Maps, or QGIS to map Flock camera locations.
 
 GPS is fully optional — the detector works without it.
+
+## Range Estimates
+
+Range labels (CLOSE / NEAR / FAR) are rough estimates based on RSSI signal strength. Actual range varies with environment — walls, trees, antenna orientation, and transmit power all affect the signal. These labels are most useful while driving outdoors with line-of-sight to pole-mounted cameras.
 
 ## Legal Disclaimer
 

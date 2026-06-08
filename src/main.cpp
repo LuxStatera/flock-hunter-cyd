@@ -91,7 +91,7 @@ static unsigned long bootT = 0, alertT = 0, lastUI = 0, lastDot = 0;
 static int alertIdx = -1, dots = 0;
 static State prevSt = ST_BOOT;
 static bool needFull = true;
-static int prevDots = -1, prevChIdx = -1, prevPkt = -1, prevDet = -1;
+static int prevDots = -1, prevChIdx = -1, prevPkt = -1, prevDet = -1, prevActive = -1;
 static int prevFlash = -1;
 static unsigned long listT = 0;
 
@@ -118,17 +118,17 @@ void playTone() {
     ledcDetachPin(SPEAKER_PIN);
 }
 
-int rssiToFeet(int8_t rssi) {
-    if (rssi > -40) return 10;
-    if (rssi > -50) return 30;
-    if (rssi > -55) return 50;
-    if (rssi > -60) return 75;
-    if (rssi > -65) return 100;
-    if (rssi > -70) return 150;
-    if (rssi > -75) return 200;
-    if (rssi > -80) return 300;
-    if (rssi > -85) return 450;
-    return 600;
+const char* rssiLabel(int8_t rssi) {
+    if (rssi > -60) return "CLOSE";
+    if (rssi > -75) return "NEAR";
+    return "FAR";
+}
+
+int countActive() {
+    int n = 0;
+    for (int i = 0; i < nDet; i++)
+        if (dets[i].active) n++;
+    return n;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -391,7 +391,6 @@ void drawScan() {
         // Bottom info
         tft.setTextFont(2); tft.setTextColor(DDGRN, BG);
         tft.drawString("PASSIVE  2.4GHz  802.11", 15, 205);
-        tft.drawString("32 SCAN PATTERNS LOADED", 15, 225);
 
         // SD + PCAP status — bottom left
         tft.setTextFont(2);
@@ -403,7 +402,7 @@ void drawScan() {
             tft.drawString("SD:NONE", 15, SH - 20);
         }
 
-        prevDots = -1; prevChIdx = -1; prevPkt = -1; prevDet = -1;
+        prevDots = -1; prevChIdx = -1; prevPkt = -1; prevDet = -1; prevActive = -1;
         needFull = false;
     }
 
@@ -452,13 +451,29 @@ void drawScan() {
         prevPkt = totalPkt;
     }
 
-    // Detection count
+    // Camera count
     if (nDet != prevDet) {
         tft.setTextFont(4);
         tft.setTextColor(nDet > 0 ? RED : GRN, BG);
         char b[16]; sprintf(b, "%-6d", nDet);
         tft.drawString(b, SW/2 + 10, 150);
         prevDet = nDet;
+    }
+
+    // In range count
+    int active = countActive();
+    if (active != prevActive) {
+        tft.setTextFont(2);
+        tft.fillRect(15, 225, SW - 30, 16, BG);
+        if (active > 0) {
+            tft.setTextColor(RED, BG);
+            char ab[24]; sprintf(ab, "%d IN RANGE", active);
+            tft.drawString(ab, 15, 225);
+        } else {
+            tft.setTextColor(DDGRN, BG);
+            tft.drawString("No cameras in range", 15, 225);
+        }
+        prevActive = active;
     }
 
     // Uptime — bottom right
@@ -514,7 +529,7 @@ void drawAlert(int idx) {
     tft.setTextFont(2); tft.setTextColor(DGRN, bg);
     tft.drawString("SIGNAL", 12, y);
     tft.setTextColor(GRN, bg);
-    char rb[24]; sprintf(rb, "%d dBm  ~%dft", d.rssi, rssiToFeet(d.rssi));
+    char rb[24]; sprintf(rb, "%d dBm  %s", d.rssi, rssiLabel(d.rssi));
     tft.drawString(rb, 140, y);
 
     y += 20;
@@ -615,7 +630,7 @@ void drawList() {
 
             tft.setTextFont(2); tft.setTextColor(DGRN, BG);
             char info[48];
-            sprintf(info, "%ddBm ~%dft  CH%d  %s", d.rssi, rssiToFeet(d.rssi), d.ch, d.method);
+            sprintf(info, "%ddBm %s  CH%d  %s", d.rssi, rssiLabel(d.rssi), d.ch, d.method);
             tft.drawString(info, 22, y + 22);
 
             tft.drawFastHLine(8, y + 42, SW-16, DDGRN);
