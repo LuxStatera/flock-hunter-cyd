@@ -590,12 +590,9 @@ void drawAlert(int idx) {
     tft.setTextColor(GRN, bg);
     tft.drawString(oui, 140, y);
 
-    // Footer
-    tft.setTextDatum(MC_DATUM);
-    tft.setTextColor(DRED, bg);
-    tft.setTextFont(2);
-    tft.drawString("FLOCK HUNTER", SW/2, SH - 16);
-    tft.setTextDatum(TL_DATUM);
+    // Bottom border line below content
+    y += 22;
+    tft.drawFastHLine(8, y, SW-16, DRED);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
