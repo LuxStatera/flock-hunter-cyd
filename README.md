@@ -76,8 +76,8 @@ Displays "Flock Hunter" title, "Based on Flock You" credit line, version info, a
 - Green header bar with "FLOCK HUNTER" title
 - Animated "SCANNING..." text with cycling dots
 - Three channel indicator boxes (CH 1, CH 6, CH 11) highlighting the active channel
-- Live packet counter and detection counter
-- Network info (passive mode, 2.4GHz, 802.11, 32 OUI signatures)
+- Live packet counter and camera counter
+- Network info (passive mode, 2.4GHz, 802.11, 32 scan patterns)
 - SD card and PCAP recording status
 - Uptime display
 
@@ -85,12 +85,12 @@ Displays "Flock Hunter" title, "Based on Flock You" credit line, version info, a
 Triggered on new camera detection:
 - Red flashing border for 1 second, then solid display for 4 seconds
 - "FLOCK CAMERA DETECTED" banner
-- Full details: MAC address, signal strength (dBm), channel, frequency, detection method, hit count, status, OUI prefix
+- Full details: MAC address, signal strength with estimated distance (dBm ~Xft), channel, frequency, detection method, hit count, status, OUI prefix
 - RGB LED turns red
 - Audio alert tone (800-1900Hz sweep) if optional speaker is connected
 
 ### Camera List Screen
-- Shows the 4 most recent detected cameras with MAC address, RSSI, channel, hit count, and detection method
+- Shows the 4 most recent detected cameras with MAC address, RSSI, estimated distance, channel, and detection method
 - Green/red status dots for active/stale cameras
 - Displays for 5 seconds before returning to scan mode
 

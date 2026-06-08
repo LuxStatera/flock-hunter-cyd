@@ -118,6 +118,19 @@ void playTone() {
     ledcDetachPin(SPEAKER_PIN);
 }
 
+int rssiToFeet(int8_t rssi) {
+    if (rssi > -40) return 10;
+    if (rssi > -50) return 30;
+    if (rssi > -55) return 50;
+    if (rssi > -60) return 75;
+    if (rssi > -65) return 100;
+    if (rssi > -70) return 150;
+    if (rssi > -75) return 200;
+    if (rssi > -80) return 300;
+    if (rssi > -85) return 450;
+    return 600;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SD CARD + PCAP
 // ═══════════════════════════════════════════════════════════════════════════
@@ -331,7 +344,7 @@ void drawBoot() {
 
         tft.setTextFont(2); tft.setTextColor(DDGRN, BG);
         tft.drawString("ESP32-CYD // v2.0", SW/2, 185);
-        tft.drawString("32 OUI SIGNATURES", SW/2, 205);
+        tft.drawString("32 SCAN PATTERNS", SW/2, 205);
 
         tft.drawRect(40, 240, SW-80, 16, DGRN);
 
@@ -369,8 +382,8 @@ void drawScan() {
         tft.setTextFont(2); tft.setTextColor(DGRN, BG);
         tft.drawString("PACKETS", 15, 130);
 
-        // Detections label
-        tft.drawString("DETECTIONS", SW/2 + 10, 130);
+        // Cameras label
+        tft.drawString("CAMERAS", SW/2 + 10, 130);
 
         // Divider
         tft.drawFastHLine(8, 195, SW-16, DDGRN);
@@ -378,7 +391,7 @@ void drawScan() {
         // Bottom info
         tft.setTextFont(2); tft.setTextColor(DDGRN, BG);
         tft.drawString("PASSIVE  2.4GHz  802.11", 15, 205);
-        tft.drawString("32 OUI SIGNATURES LOADED", 15, 225);
+        tft.drawString("32 SCAN PATTERNS LOADED", 15, 225);
 
         // SD + PCAP status — bottom left
         tft.setTextFont(2);
@@ -497,11 +510,11 @@ void drawAlert(int idx) {
     tft.drawFastHLine(8, y, SW-16, DRED);
     y += 8;
 
-    // Signal
+    // Signal + distance
     tft.setTextFont(2); tft.setTextColor(DGRN, bg);
     tft.drawString("SIGNAL", 12, y);
     tft.setTextColor(GRN, bg);
-    char rb[12]; sprintf(rb, "%d dBm", d.rssi);
+    char rb[24]; sprintf(rb, "%d dBm  ~%dft", d.rssi, rssiToFeet(d.rssi));
     tft.drawString(rb, 140, y);
 
     y += 20;
@@ -602,7 +615,7 @@ void drawList() {
 
             tft.setTextFont(2); tft.setTextColor(DGRN, BG);
             char info[48];
-            sprintf(info, "%ddBm  CH%d  x%d  %s", d.rssi, d.ch, d.count, d.method);
+            sprintf(info, "%ddBm ~%dft  CH%d  %s", d.rssi, rssiToFeet(d.rssi), d.ch, d.method);
             tft.drawString(info, 22, y + 22);
 
             tft.drawFastHLine(8, y + 42, SW-16, DDGRN);
