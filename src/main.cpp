@@ -589,6 +589,13 @@ void drawAlert(int idx) {
     char oui[12]; sprintf(oui, "%02X:%02X:%02X", d.mac[0], d.mac[1], d.mac[2]);
     tft.setTextColor(GRN, bg);
     tft.drawString(oui, 140, y);
+
+    // Footer
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(DRED, bg);
+    tft.setTextFont(2);
+    tft.drawString("FLOCK HUNTER", SW/2, SH - 16);
+    tft.setTextDatum(TL_DATUM);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
