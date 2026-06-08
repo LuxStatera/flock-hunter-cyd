@@ -390,7 +390,7 @@ void drawScan() {
 
         // Bottom info
         tft.setTextFont(2); tft.setTextColor(DDGRN, BG);
-        tft.drawString("PASSIVE  2.4GHz", 15, 205);
+        // static info drawn with dynamic "in range" line
 
         // SD + PCAP status — bottom left
         tft.setTextFont(2);
@@ -460,7 +460,7 @@ void drawScan() {
         prevDet = nDet;
     }
 
-    // In range count
+    // In range count + passive mode info
     int active = countActive();
     if (active != prevActive) {
         tft.setTextFont(2);
@@ -471,8 +471,10 @@ void drawScan() {
             tft.drawString(ab, 15, 225);
         } else {
             tft.setTextColor(DDGRN, BG);
-            tft.drawString("No cameras in range", 15, 225);
+            tft.drawString("No cameras", 15, 225);
         }
+        tft.setTextColor(DDGRN, BG);
+        tft.drawString("PASSIVE 2.4GHz", SW - 130, 225);
         prevActive = active;
     }
 
