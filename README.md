@@ -138,8 +138,8 @@ pip install platformio
 
 ### Step 2: Download This Project
 ```bash
-git clone https://github.com/LuxStatera/flock-hunter-cyd.git
-cd flock-hunter-cyd
+git clone https://github.com/LuxStatera/flock-hunter-cyd-wifi.git
+cd flock-hunter-cyd-wifi
 ```
 Or download the ZIP from GitHub and extract it.
 
