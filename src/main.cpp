@@ -5,6 +5,7 @@
 #include <TFT_eSPI.h>
 #include "esp_wifi.h"
 #include "esp_wifi_types.h"
+#include <TinyGPSPlus.h>
 
 TFT_eSPI tft = TFT_eSPI();
 
@@ -18,6 +19,18 @@ int SH = 480;
 #define SPEAKER_PIN 26
 #define BACKLIGHT_PIN 21
 #define SD_CS 5
+#define GPS_RX_PIN 22  // ESP32 RX ← GPS TX
+#define GPS_TX_PIN 27  // ESP32 TX → GPS RX
+
+TinyGPSPlus gps;
+HardwareSerial gpsSerial(2);
+static bool gpsValid = false;
+static double gpsLat = 0.0, gpsLng = 0.0;
+static int gpsSats = 0;
+static int prevGpsSats = -1;
+static fs::File csvFile;
+static fs::File kmlFile;
+static char kmlPath[64];
 
 #define BG    0x0000
 #define GRN   0x07E0
@@ -214,6 +227,29 @@ static bool initSD() {
     }
     writePcapHeader(pcapFile);
 
+    // Open CSV file for GPS detections
+    char csvPath[64];
+    sprintf(csvPath, "%s/csv/detections.csv", sessionPath);
+    csvFile = SD.open(csvPath, FILE_WRITE);
+    if (csvFile) {
+        csvFile.println("timestamp_ms,lat,lng,sats,mac,rssi,range,channel,method");
+        csvFile.flush();
+    }
+
+    // Open KML file for Google Earth/Maps
+    sprintf(kmlPath, "%s/csv/detections.kml", sessionPath);
+    kmlFile = SD.open(kmlPath, FILE_WRITE);
+    if (kmlFile) {
+        kmlFile.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        kmlFile.println("<kml xmlns=\"http://www.opengis.net/kml/2.2\">");
+        kmlFile.println("<Document>");
+        kmlFile.println("<name>Flock Hunter Detections</name>");
+        kmlFile.println("<Style id=\"flock\"><IconStyle><color>ff0000ff</color><scale>1.2</scale>");
+        kmlFile.println("<Icon><href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href></Icon>");
+        kmlFile.println("</IconStyle></Style>");
+        kmlFile.flush();
+    }
+
     Serial.printf("[SD] Session: %s\n", sessionPath);
     return true;
 }
@@ -236,6 +272,40 @@ static void drainPcapBuffer() {
     if (millis() - lastFlush > 5000) {
         pcapFile.flush();
         lastFlush = millis();
+    }
+}
+
+static void logDetectionCSV(Det& d) {
+    if (!sdReady) return;
+    char mb[18]; fmtMac(d.mac, mb);
+
+    // CSV
+    if (csvFile) {
+        if (gpsValid) {
+            csvFile.printf("%lu,%.6f,%.6f,%d,%s,%d,%s,%d,%s\n",
+                millis(), gpsLat, gpsLng, gpsSats,
+                mb, d.rssi, rssiLabel(d.rssi), d.ch, d.method);
+        } else {
+            csvFile.printf("%lu,,,%d,%s,%d,%s,%d,%s\n",
+                millis(), gpsSats,
+                mb, d.rssi, rssiLabel(d.rssi), d.ch, d.method);
+        }
+    }
+
+    // KML — only write placemarks with valid GPS
+    if (kmlFile && gpsValid) {
+        kmlFile.println("<Placemark>");
+        kmlFile.printf("<name>%s</name>\n", mb);
+        kmlFile.printf("<description>RSSI: %d dBm (%s)\nChannel: %d\nMethod: %s\nHits: %d</description>\n",
+            d.rssi, rssiLabel(d.rssi), d.ch, d.method, d.count);
+        kmlFile.println("<styleUrl>#flock</styleUrl>");
+        kmlFile.printf("<Point><coordinates>%.6f,%.6f,0</coordinates></Point>\n", gpsLng, gpsLat);
+        kmlFile.println("</Placemark>");
+        // Write closing tags and flush — rewind past them on next write
+        long pos = kmlFile.position();
+        kmlFile.println("</Document></kml>");
+        kmlFile.flush();
+        kmlFile.seek(pos);  // rewind so next placemark overwrites the closing tags
     }
 }
 
@@ -308,9 +378,14 @@ void processAlerts() {
             d.first = d.last = millis(); d.count = 1; d.active = true;
             const char* ms[] = {"WILD_PROBE","OUI_TX","OUI_RX"};
             strncpy(d.method, ms[e.method], 11); d.method[11] = 0;
-            alertIdx = nDet; alertT = millis();
+            logDetectionCSV(d);
+            if (csvFile) csvFile.flush();
+            if (kmlFile) kmlFile.flush();
+            alertIdx = nDet;
             st = ST_ALERT; needFull = true;
-            playTone(); nDet++;
+            playTone();
+            alertT = millis();  // set AFTER tone so flash window starts when UI draws
+            nDet++;
         }
     }
     for (int i = 0; i < nDet; i++)
@@ -402,7 +477,7 @@ void drawScan() {
             tft.drawString("SD: NONE", 15, 210);
         }
 
-        prevDots = -1; prevChIdx = -1; prevPkt = -1; prevDet = -1; prevActive = -1;
+        prevDots = -1; prevChIdx = -1; prevPkt = -1; prevDet = -1; prevActive = -1; prevGpsSats = -1;
         needFull = false;
     }
 
@@ -464,21 +539,38 @@ void drawScan() {
     int active = countActive();
     if (active != prevActive) {
         tft.setTextFont(2);
-        tft.fillRect(15, 190, SW - 30, 16, BG);
+        tft.fillRect(15, 190, SW/2 - 15, 16, BG);  // only clear left half
         if (active > 0) {
             tft.setTextColor(RED, BG);
             char ab[24]; sprintf(ab, "%d IN RANGE", active);
             tft.drawString(ab, 15, 190);
         } else {
             tft.setTextColor(DDGRN, BG);
-            tft.drawString("No cameras in range", 15, 190);
+            tft.drawString("No cameras", 15, 190);
         }
-        tft.setTextColor(DDGRN, BG);
-        tft.drawString("PASSIVE 2.4GHz", SW - 130, 190);
         prevActive = active;
     }
 
-    // Uptime — bottom right
+    // GPS status — independent update, right side
+    if (gpsSats != prevGpsSats || prevGpsSats == -1) {
+        tft.setTextFont(2);
+        tft.fillRect(SW/2, 190, SW/2, 16, BG);  // only clear right half
+        if (gpsValid) {
+            tft.setTextColor(GRN, BG);
+            char gb[20]; sprintf(gb, "GPS: %d sats", gpsSats);
+            tft.drawString(gb, SW - 130, 190);
+        } else if (gpsSats > 0) {
+            tft.setTextColor(DGRN, BG);
+            char gb[20]; sprintf(gb, "GPS: %d sats", gpsSats);
+            tft.drawString(gb, SW - 130, 190);
+        } else {
+            tft.setTextColor(DDGRN, BG);
+            tft.drawString("GPS: ...", SW - 130, 190);
+        }
+        prevGpsSats = gpsSats;
+    }
+
+    // Uptime
     unsigned long sec = millis()/1000;
     char ut[16]; sprintf(ut, "%02lu:%02lu  ", sec/60, sec%60);
     tft.setTextFont(2); tft.setTextColor(DDGRN, BG);
@@ -558,23 +650,6 @@ void drawAlert(int idx) {
     tft.setTextColor(GRN, bg);
     tft.drawString(d.method, 140, y);
 
-    y += 20;
-
-    // Hits
-    tft.setTextColor(DGRN, bg);
-    tft.drawString("HITS", 12, y);
-    tft.setTextColor(GRN, bg);
-    char hb[8]; sprintf(hb, "%d", d.count);
-    tft.drawString(hb, 140, y);
-
-    y += 20;
-
-    // Status
-    tft.setTextColor(DGRN, bg);
-    tft.drawString("STATUS", 12, y);
-    tft.setTextColor(d.active ? GRN : RED, bg);
-    tft.drawString(d.active ? "LIVE" : "STALE", 140, y);
-
     y += 22;
     tft.drawFastHLine(8, y, SW-16, DRED);
     y += 8;
@@ -585,6 +660,29 @@ void drawAlert(int idx) {
     char oui[12]; sprintf(oui, "%02X:%02X:%02X", d.mac[0], d.mac[1], d.mac[2]);
     tft.setTextColor(GRN, bg);
     tft.drawString(oui, 140, y);
+
+    y += 20;
+
+    // GPS
+    tft.setTextColor(DGRN, bg);
+    tft.drawString("GPS", 12, y);
+    if (gpsValid) {
+        tft.setTextColor(GRN, bg);
+        char gb[28]; sprintf(gb, "%.4f, %.4f", gpsLat, gpsLng);
+        tft.drawString(gb, 140, y);
+    } else {
+        tft.setTextColor(DRED, bg);
+        tft.drawString("No fix", 140, y);
+    }
+
+    y += 20;
+
+    // Satellites
+    tft.setTextColor(DGRN, bg);
+    tft.drawString("SATELLITES", 12, y);
+    tft.setTextColor(gpsValid ? GRN : DRED, bg);
+    char sb[8]; sprintf(sb, "%d", gpsSats);
+    tft.drawString(sb, 140, y);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -666,6 +764,10 @@ void setup() {
     needFull = true;
     drawBoot();
 
+    // Init GPS on Serial2
+    gpsSerial.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+    Serial.println("[GPS] UART2 started on RX=22 TX=27");
+
     // Init SD card
     sdReady = initSD();
 
@@ -709,7 +811,19 @@ void loop() {
         esp_wifi_set_channel(SCAN_CH[chIdx], WIFI_SECOND_CHAN_NONE);
     }
 
+    // Read GPS data
+    while (gpsSerial.available() > 0) {
+        gps.encode(gpsSerial.read());
+    }
+    if (gps.location.isUpdated()) {
+        gpsValid = gps.location.isValid();
+        gpsLat = gps.location.lat();
+        gpsLng = gps.location.lng();
+    }
+    gpsSats = gps.satellites.value();
+
     processAlerts();
+    now = millis();  // refresh — processAlerts may call playTone (~360ms)
     drainPcapBuffer();
 
     if (now - lastDot >= 500) { lastDot = now; dots = (dots+1) % 4; }
