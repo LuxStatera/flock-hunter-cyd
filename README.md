@@ -1,6 +1,6 @@
 # Flock Hunter
 
-A passive WiFi-based Flock Safety camera detector built for the **ESP32-2432S028R** (Cheap Yellow Display / CYD) board. Sniffs 2.4GHz management and data frames for known Flock Safety MAC OUI prefixes without transmitting — completely passive reconnaissance. Captures raw 802.11 packets to SD card in pcap format for Wireshark analysis.
+A passive WiFi-based Flock Safety camera detector built for the **ESP32-2432S028R** (Cheap Yellow Display / CYD) board. Sniffs 2.4GHz management and data frames for known Flock Safety MAC OUI prefixes without transmitting — completely passive reconnaissance. Captures raw 802.11 packets to SD card in pcap format for Wireshark analysis. Optional GPS module logs detection coordinates to KML files for mapping in Google Earth.
 
 ![Flock detector devices](images/devices.jpg)
 
@@ -30,17 +30,29 @@ The detector cycles through WiFi channels **1, 6, and 11** (the three non-overla
 
 ## Hardware
 
-### ESP32-2432S028R (CYD) Specs
+### ESP32-2432S028R (CYD) Board
 - **MCU:** ESP32-D0WD-V3 (dual-core 240MHz)
 - **Display:** 2.8" ILI9488 TFT, 320x480 pixels
-- **Interface:** SPI (MOSI:13, SCLK:14, CS:15, DC:2)
-- **Touch:** Resistive (CS:33)
-- **RGB LED:** R:4, G:16, B:17 (active low)
-- **Backlight:** Pin 21
-- **SD Card:** Built-in micro SD slot (CS:5, CLK:18, MISO:19, MOSI:23)
-- **Speaker (optional):** Pin 26 — not connected by default, but the firmware supports audio alerts if you wire a small speaker or piezo buzzer to GPIO 26
+- **SD Card:** Built-in micro SD slot
+- **RGB LED:** Built-in (active low)
 - **USB:** USB-C (CH340 serial + power) + Micro USB (power only)
-- **GPS (optional):** ATGM336H module via CN1 header (RX:22, TX:27, 3V3, GND)
+
+### Wiring
+
+The CYD board has a **CN1 expansion header** with 4 pins. The GPS module connects here. The buzzer connects directly to GPIO 26 (JST connector or solder).
+
+| Component | Pin | CYD Connection |
+|-----------|-----|----------------|
+| **GPS TX** | GPIO 22 | CN1 pin 2 |
+| **GPS RX** | GPIO 27 | CN1 pin 3 |
+| **GPS VCC** | 3V3 | CN1 pin 4 |
+| **GPS GND** | GND | CN1 pin 1 |
+| **Buzzer (+)** | GPIO 26 | JST speaker connector or solder |
+| **Buzzer (-)** | GND | Any GND point |
+
+> **GPS and buzzer are optional.** The detector works without them — GPS adds location mapping and the buzzer adds audio alerts.
+
+> **SD card** uses the built-in slot on the back of the CYD — no wiring needed, just insert a FAT32-formatted card.
 
 ## SD Card + PCAP + GPS Logging
 
@@ -127,9 +139,10 @@ Triggered on new camera detection:
 ## Building & Flashing
 
 ### What You Need
-- **ESP32-2432S028R** board (2.8" CYD with ILI9488 display, USB-C variant) — available on AliExpress/Amazon for ~$10-15
+- **ESP32-2432S028R** board (2.8" CYD with ILI9488 display, USB-C variant) — ~$10-15 on AliExpress/Amazon
 - **Micro SD card** (FAT32 formatted, any size) — for PCAP capture and GPS logging
-- **ATGM336H GPS module + antenna** (optional) — ~$3-5, connects to CN1 header
+- **ATGM336H GPS module + antenna** (optional) — ~$3-5, for location mapping
+- **Passive piezo buzzer** (optional) — ~$0.50, for audio alerts on GPIO 26
 - **USB-C cable** (data cable, not charge-only)
 - A computer (Windows, macOS, or Linux)
 
@@ -219,19 +232,6 @@ The device logs detection events over serial at 115200 baud:
 [FLOCK HUNTER] Scanning channels 1, 6, 11
 [ALERT] 70:C9:4E:AB:CD:EF RSSI:-72 CH:6 OUI_TX
 ```
-
-## GPS Module (Optional)
-
-Connect an **ATGM336H GPS module** to the CN1 expansion header for location-tagged detections:
-
-| GPS Pin | CYD CN1 Pin |
-|---------|-------------|
-| TX | GPIO 22 |
-| RX | GPIO 27 |
-| VCC | 3V3 |
-| GND | GND |
-
-The GPS locks on within seconds after first use. The scan screen shows live satellite count, and each detection is logged with coordinates to both CSV and KML files. GPS is fully optional — the detector works without it.
 
 ## Range Estimates
 
